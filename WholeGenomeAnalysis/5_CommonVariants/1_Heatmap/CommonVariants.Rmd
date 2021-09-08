@@ -1,0 +1,86 @@
+---
+title: 'H9 HA226 in vivo competition quail infection: Common Variants'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+The input required for this analysis is "Complete.Extended.AF.Cov.SNPdat.final.txt" from 'H9 HA226 in vivo competition quail infection: whole genome mutation distribution' 
+
+Here we evaluate variant detection by quail within exposure group
+
+
+```{r message=F}
+library(dplyr)
+library(ggplot2)
+
+Complete.Extended.AF.Cov.SNPdat.final <-
+  read.table("Complete.Extended.AF.Cov.SNPdat.final.txt", 
+                                                   head = T)
+
+# Filter occurrences that are present > 1
+# Convert Quails' values to character
+Complete.Extended.AF.Cov.SNPdat.final$Quail <-
+as.character(Complete.Extended.AF.Cov.SNPdat.final$Quail)
+
+Complete.VariantShared.Ext <-
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  group_by(Expo,
+           Group, 
+           Quail,
+           Segment,
+           Position,
+           Length) %>%
+  filter(n()>1) %>%
+  count() 
+```
+
+Variant detection by quail within exposure group
+
+```{r}
+
+# Count occurrences in Length for df Complete.VariantShared.Ext. 
+Quails.VariantShared.Ext <-
+Complete.VariantShared.Ext %>%
+  group_by(Expo, 
+           Segment, 
+           Position, 
+           Length) %>%
+  filter(n()>1) %>%
+  count()
+
+Quail.colors <- colorRampPalette(c("light blue", "red"))  (9)
+
+Quails.VariantShared.Ext.plot <-
+ggplot(Quails.VariantShared.Ext, aes(x=Length, y= Expo, fill=factor(n))) + 
+  geom_tile(width=20) +
+  #geom_text(aes(label=Position), angle = 45) + 
+  #The above line allowed to number positions in the figure
+  scale_fill_manual(values = Quail.colors) +
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(), 
+    axis.line = element_line(colour = "black"),
+    axis.text.y = element_text(size=12),
+    axis.text.x = element_blank(),
+    strip.text.y = element_text(size = 9), 
+    axis.title = element_text(size = 12),
+    legend.title.align=0.5
+  ) +
+  scale_x_continuous(breaks = c(1, 2341, 4682, 6915, 
+                                8658, 10223, 11683, 
+                                12710, 13600), 
+                     limits = c(1, 13600)) + 
+  # The above scale divides the segments.
+  xlab("Segments") + ylab("Exposure group") +
+  labs(fill = "Number\nof\nQuails")
+print(Quails.VariantShared.Ext.plot)  
+ggsave("Quails.VariantShared.Ext.plot.pdf", width=10, height=3, dpi=300)
+```
+
+Image in the publication was further modified for aesthetics purposes using [Inkscape](https://inkscape.org).
+
+
+

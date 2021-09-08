@@ -1,0 +1,83 @@
+---
+title: 'H9 HA216 in vivo competition quail infection: whole genome mutation distribution.
+  Frequency dynamics of shared iSNVs'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+We evaluated the dynamics of the frequency for those common (shared) variants found in different quails. The following is an example to reproduce the figure which contains the information for NP 1550.
+The input required has the column "day" for direct contacts (DC) as dpi instead of dpc. This table is called Complete.Extended.AF.Cov.SNPdat.final.dpi
+
+```{r message=F}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+```{r}
+# Import table
+Complete.Extended.AF.Cov.SNPdat.final.dpi <-
+  read.table("Complete.Extended.AF.Cov.SNPdat.final.dpi.txt", 
+                                                   head = T)
+
+# Filter position.
+Expo.Shared.NP.1550 <- Complete.Extended.AF.Cov.SNPdat.final.dpi %>% 
+  filter(Segment == 5 & Position == "1550") %>% 
+  select(Expo, 
+         Quail, 
+         Group, 
+         Segment, 
+         Position, 
+         Freq, 
+         day) %>% 
+  arrange(Quail, day) 
+
+# Add levels to organize data for plot.
+Expo.Shared.NP.1550$Expo <- factor(Expo.Shared.NP.1550$Expo,
+                                   levels = c("DI", "DC"))
+Expo.Shared.NP.1550$Quail <- factor(Expo.Shared.NP.1550$Quail,
+                                    levels = c("4", "5", "6", 
+                                               "10","11","12",
+                                               "16","17","18",
+                                               "28","29","30",
+                                               "34","35","36",
+                                               "46","47","48",
+                                               "52","53","54",
+                                               "58","59","60"))
+Expo.Shared.NP.1550$Group <- factor(Expo.Shared.NP.1550$Group,
+                                   levels = c("var", "varQ", "varLQ", "varL"))
+
+# Assign colors
+## Assign colors to "Extended" quails
+
+fill_colors.Ext <- c("4" = "#99FF00", "5" = "#33FF00", "6" = "#006600", 
+                     "16" = "#CCCC33","17" = "#CCCC99","18" = "#FFCC99",
+                     "28" = "#993333","29" = "#FF6666","30" = "#FF9999",
+                     "52" = "#99CCFF","53" = "#9966CC","54" = "#9900CC",
+                     
+                     "10" = "#66CCCC", "11" = "#00C08D", "12" = "#00CC33", 
+                     "58" = "#CC6633","59" = "#85AD00","60" = "#AFA100",
+                     "34" = "#9900FF","35" = "#00B0F6","36" = "#529EFF",
+                     "46" = "#F8766D","47" = "#E7861B","48" = "#CF9400")  
+
+# Plot
+Expo.Shared.NP.1550.plot<-
+  ggplot(Expo.Shared.NP.1550,aes(x=as.numeric(day), 
+                                 y=Freq, color = Quail)) +
+  geom_line(aes(linetype=Expo))+
+  geom_point(aes(shape = Expo)) +
+  ggtitle("NP 1550") +
+  scale_color_manual(values = fill_colors.Ext) +
+  scale_x_continuous(breaks = c(1, 3, 5, 7, 9, 10)) +
+  scale_y_continuous(limits = c(0,1)) +
+  ylab("Frequency") + xlab("Days (dpi)") + theme_bw() +
+  guides(col = guide_legend(nrow = 10)) +
+  coord_fixed(ratio = 4.5) +
+  facet_grid(Group~.) 
+print(Expo.Shared.NP.1550.plot)
+ggsave("Expo.Shared.NP.1550.plot.pdf", dpi=350, height = 4, width = 4.5)
+```
+
+This figure was further modified using [Inkscape](https://inkscape.org) for publication.
+
