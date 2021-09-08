@@ -1,0 +1,229 @@
+---
+title: 'H9 HA216 in vivo competition quail infection: whole genome mutation distribution'
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+Analysis of alternative variants distribution across Influenza A genome. This analysis evaluates the  position in the genome divided by Influenza A segments, nature (synonymous, nonsynonymous, nonsense and variants present in the UTRs) along with the frequency of the variants.
+
+The inputs required for this analysis are:
+
+1. Quail.Complete.txt
+  This table has sample, quail number, exposure group (inoculated or contact) and group     (var, varL, varLQ, varQ)
+
+2. Complete.Extended.AF.Cov.final.tsv
+  This table is a concatenated version that has the information from the variant analysis using LoFreq under GATK guidelines. Variants in the file have at least a frequency of 0.02 and a depth of coverage  of 400X.
+  
+ 3. Complete.SNPdat.Ext.txt
+ This table is the result of concatenating outputs produced by [SNPdat](https://code.google.com/archive/p/snpdat/) for each sample evaluated in the study. This table has the type of mutation that each variant represents.
+ 
+ NOTE: Extended and Ext in the names of the files refers to the group of quails that have been use to perform this analysis. This group correspond only to quails that were evaluated throughout the complete experiment. This distinction is important since some animals (=3/group/Exposure and not included in the "extended" group) were euthanize at 5 dpi/dpc for tissue collection.
+```{r message=F}
+library(dplyr) 
+library(ggplot2)
+library(stringr)
+```
+
+```{r}
+## Import files and add headers
+## Import Quail.Complete.txt
+Quail.Complete <- read.table("Quail.Complete.txt", 
+                             header = F, sep = "\t", stringsAsFactors = T)
+colnames(Quail.Complete) <- c("Sample", "Quail", "day", "Expo", "Group")
+Quail.Complete$Sample <- as.character(Quail.Complete$Sample)
+##Erase trailing space in column "Samples"
+Quail.Complete$Sample <-trimws(Quail.Complete$Sample,"r")
+
+## Import Complete.Extended.AF.Cov.final.tsv
+Complete.Extended.AF.Cov.final <-read.table("Complete.Extended.AF.Cov.final.tsv", head = F)
+colnames(Complete.Extended.AF.Cov.final) <- 
+  c("Segment", "Position", "Cov", "Length", "REF", "ALT", "Freq", "Sample")
+
+## Complete.SNPdat.Ext.txt
+Complete.SNPdat.Ext <- read.table("Complete.SNPdat.Ext.txt", 
+                                  sep = "\t", stringsAsFactors=F, head = F, na.strings=c("","NA"))
+colnames(Complete.SNPdat.Ext) <- 
+  c("Segment", "Position", "REF-AA", "ALT-AA", "SYN", "Sample")
+
+# Erase trailing spaces
+Complete.SNPdat.Ext$SYN <-trimws(Complete.SNPdat.Ext$SYN)
+# Replace "" for "O"
+Complete.SNPdat.Ext$SYN[Complete.SNPdat.Ext$SYN ==""] <- "O"
+
+```
+
+Join tables into one.
+
+```{r}
+## Join(s)
+
+# Complete.SNPdat.Ext have duplicated entries based on synonymous mutations found 
+# in the same positions within the same segment
+Complete.SNPdat.Ext <- Complete.SNPdat.Ext %>% 
+  unique()
+
+# Convert columns to the same class
+Complete.SNPdat.Ext$Position <- 
+  as.character(Complete.SNPdat.Ext$Position)
+
+Complete.Extended.AF.Cov.final$Segment <- 
+  as.numeric(Complete.Extended.AF.Cov.final$Segment)
+
+Complete.Extended.AF.Cov.final$Position <- 
+  as.character(Complete.Extended.AF.Cov.final$Position)
+
+Complete.SNPdat.Ext$Segment <- 
+  as.numeric(Complete.SNPdat.Ext$Segment)
+
+Complete.Extended.AF.Cov.final$Sample <-
+  as.character(Complete.Extended.AF.Cov.final$Sample)
+
+# Join
+Complete.Extended.AF.Cov.SNPdat <- Complete.Extended.AF.Cov.final %>%
+  left_join(Complete.SNPdat.Ext, by = c("Sample", "Segment", "Position")) 
+
+# Add Quail information
+Complete.Extended.AF.Cov.SNPdat.final <- Complete.Extended.AF.Cov.SNPdat %>%
+  left_join(Quail.Complete, by = c("Sample")) 
+
+# Erase trailing blank characters
+Complete.Extended.AF.Cov.SNPdat.final$Expo <- 
+  trimws(Complete.Extended.AF.Cov.SNPdat.final$Expo)
+Complete.Extended.AF.Cov.SNPdat.final$Group <- 
+  trimws(Complete.Extended.AF.Cov.SNPdat.final$Group)
+
+```
+
+In previous analysis, time of exposure for both inoculated and contact groups were as "dpi". The following chunk converts dpi to dpc for contact groups. This chunk also removes 9 dpi samples since there are not enough animals to compare to previous time points.
+
+```{r}
+#########                                           #############
+# Fix annotation discrepancies and time points with fewer genomes#
+########                                            #############
+
+## Replace DC day dpi annotation for dpc annotation
+# Create list
+q = c("3" = "1",
+      "5" = "3",
+      "7" = "5",
+      "9" = "7",
+      "10" = "8")
+
+# Substitute        
+Complete.Extended.AF.Cov.SNPdat.final<-Complete.Extended.AF.Cov.SNPdat.final %>% 
+  mutate(day = case_when(Expo == "DC" ~ str_replace_all(day, q),
+                         TRUE ~ as.character(day)))
+
+## Remove 9 dpi
+Complete.Extended.AF.Cov.SNPdat.final <-
+  Complete.Extended.AF.Cov.SNPdat.final %>% 
+  filter(!(Expo == "DI" & day == 9)) 
+
+## Flag nonsense mutations
+Complete.Extended.AF.Cov.SNPdat.final <-
+Complete.Extended.AF.Cov.SNPdat.final %>% 
+  mutate(SYN = 
+           case_when((is.na(`ALT-AA`) & SYN == "N") ~ str_replace(SYN, "N", "X"), 
+                         TRUE ~ as.character(SYN)))
+
+write.table(Complete.Extended.AF.Cov.SNPdat.final, 
+            file = "Complete.Extended.AF.Cov.SNPdat.final.txt", 
+            quote = F, sep="\t",
+            row.names = FALSE)
+```
+
+As plotting both exposure groups together makes the plot busy, these groups were split.
+
+```{r}
+
+## Filter DI and DC into SYN (Y), NONSYN (N), No.cod (O) and STOP (X)
+
+## ----- DI
+DI.Extended.AF.Cov.SNPdat.final.SYN <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "Y" &  Expo == "DI") 
+
+DI.Extended.AF.Cov.SNPdat.final.NONSYN <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "N" &  Expo == "DI") 
+
+DI.Extended.AF.Cov.SNPdat.final.No.cod <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "O" &  Expo == "DI") 
+
+DI.Extended.AF.Cov.SNPdat.final.STOP <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "X" &  Expo == "DI") 
+
+## ----- DC
+DC.Extended.AF.Cov.SNPdat.final.SYN <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "Y" &  Expo == "DC") 
+
+DC.Extended.AF.Cov.SNPdat.final.NONSYN <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "N" &  Expo == "DC") 
+
+DC.Extended.AF.Cov.SNPdat.final.No.cod <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "O" &  Expo == "DC") 
+
+DC.Extended.AF.Cov.SNPdat.final.STOP <- 
+  Complete.Extended.AF.Cov.SNPdat.final %>%
+  filter(SYN == "X" &  Expo == "DC") 
+
+```
+
+The following will generate the plot SuppFigure 2.
+
+```{r}
+## DC and DI plots are made separately
+### Plot
+# Assign colors
+groupColors = c("var" = "red",
+                "varL" = "gold",
+                "varLQ" = "green3",
+                "varQ" = "dodgerblue2")
+
+Expo.label <- c("DI" = "Inoculated",
+                "DC" = "Contacts")
+
+DC.Extended.AF.Cov.SNPdat.plot <- 
+    ggplot() + 
+  geom_point(data = DC.Extended.AF.Cov.SNPdat.final.SYN, 
+             aes(x=Length, y=Freq, fill = Group),
+             shape=21, size = 2) + 
+  geom_point(data = DC.Extended.AF.Cov.SNPdat.final.NONSYN, 
+             aes(x=Length, y=Freq, fill = Group), 
+             shape =24, size = 2) +
+  geom_point(data = DC.Extended.AF.Cov.SNPdat.final.No.cod, 
+             aes(x=Length, y=Freq, fill = Group), 
+             shape =23, size = 2) +
+  geom_point(data = DC.Extended.AF.Cov.SNPdat.final.STOP, 
+             aes(x=Length, y=Freq, fill = Group), 
+             shape =22, size = 2) +
+  scale_fill_manual(values = groupColors) +
+  geom_hline(yintercept = 0.5, colour= "grey50", linetype="dashed") +
+  geom_hline(yintercept = 1, linetype="dashed") +
+  scale_x_continuous(breaks = c(1, 2341, 4682, 6915, 8658, 
+                                10223, 11683, 12710, 13600)) +
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(), 
+    axis.line = element_line(colour = "black"),
+    axis.text.x = element_blank(), 
+    axis.text.y = element_text(face="bold", size=25)
+  ) +
+  scale_y_log10() +
+  facet_grid(day ~ Expo, labeller = labeller(day = label_value, 
+                                 Expo = Expo.label)) + 
+  theme_bw() + 
+  ylab("Frequency") + xlab("Segments")
+print(DC.Extended.AF.Cov.SNPdat.plot)
+ggsave("DC.Extended.AF.Cov.SNPdat.pdf", width=10, height=12.5, dpi=300)
+```
+
+This figure was further modified using [Inkscape](https://inkscape.org) for publication.

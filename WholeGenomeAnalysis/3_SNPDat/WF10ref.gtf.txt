@@ -1,0 +1,10 @@
+1	reference	CDS	28	2307	.	+	1	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "pb2"; transcript_name "transpb2";
+2	reference	CDS	25	2301	.	+	1	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "pb1"; transcript_name "transpb1";
+3	reference	CDS	25	2175	.	+	1	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "pa"; transcript_name "transpa";
+4	reference	CDS	33	1715	.	+	0	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "ha"; transcript_name "transha";
+5	reference	CDS	46	1542	.	+	1	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "np"; transcript_name "transnp";
+6	reference	CDS	20	1423	.	+	2	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "na"; transcript_name "transna";
+7	reference	CDS	26	784	.	+	2	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "m1"; transcript_name "transm1";
+7	reference	CDS	717	1007	.	+	0	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "2"; gene_name "m2"; transcript_name "transm2";
+8	reference	CDS	27	719	.	+	0	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "1"; gene_name "ns1"; transcript_name "transns1";
+8	reference	CDS	544	864	.	+	1	gene_id "PEREZLAB12345"; transcript_id "PEREZLABTRANS12345"; exon_number "2"; gene_name "ns2"; transcript_name "transns2";
