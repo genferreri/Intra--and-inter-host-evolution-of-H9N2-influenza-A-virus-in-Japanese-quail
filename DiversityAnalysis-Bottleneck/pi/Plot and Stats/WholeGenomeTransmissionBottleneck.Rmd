@@ -1,0 +1,178 @@
+---
+title: "Whole Genome Bottleneck calculation"
+output: html_notebook
+---
+The aim is to visualize diversity bottleneck after transmission in the HA216 quail experiment. 
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+setwd("/Users/lucasmatiasferreri/Documents/Documents - Lucas’s MacBook Pro/226variantAnalysis/HTML/Pi - Whole Genome/BottleneckAnalysis")
+
+```
+
+Import Tables with pi calculation utilizing whole genome except HA216
+
+```{r}
+DI1dpi <- read.table("DI1dpi.pi.txt", header = F, sep = "\t")
+DI3dpi <- read.table("DI3dpi.pi.txt", header = F, sep = "\t")
+DC1dpc <- read.table("DC1dpc.pi.txt", header = F, sep = "\t")
+```
+
+Add headers
+
+```{r}
+colnames(DI1dpi) <- c("Sample", "pi", "piN", "piS")
+colnames(DI3dpi) <- c("Sample", "pi", "piN", "piS")
+colnames(DC1dpc) <- c("Sample", "pi", "piN", "piS")
+
+```
+
+Add metadata
+
+```{r}
+QuailData<-read.table("Quail.Complete.txt", header = F, sep = "\t")
+colnames(QuailData)<- c("Sample", "Quail", "day", "Expo", "Group")
+
+DI1dpi.Meta <- DI1dpi %>% 
+  left_join(QuailData, by = "Sample")
+
+DI3dpi.Meta <- DI3dpi %>% 
+  left_join(QuailData, by = "Sample")
+
+DC1dpc.Meta <- DC1dpc %>% 
+  left_join(QuailData, by = "Sample")
+
+```
+
+Calculate mean 
+
+```{r}
+# Select columns and rename them
+
+DI1dpi.pi <- DI1dpi.Meta %>% 
+  select(Quail, pi) %>% 
+  rename(pi.1dpi = pi)
+
+
+DI3dpi.pi <- DI3dpi.Meta %>% 
+  select(Quail, pi) %>% 
+  rename(pi.3dpi = pi)
+
+DI.1and3dpi.pi <- DI1dpi.pi %>% 
+  left_join(DI3dpi.pi, by = "Quail")
+
+```
+
+Calculate Mean
+
+```{r}
+DI.1and3dpi.Mean.pi <- 
+  DI.1and3dpi.pi %>% 
+  mutate(pi.mean = (pi.1dpi + pi.3dpi)/2)
+```
+ 
+ Select pi and bind with DC
+ 
+```{r}
+DI.1and3dpi.Mean.pi.clean <- 
+  DI.1and3dpi.Mean.pi %>% 
+  select(Quail, pi.mean) %>% 
+  rename(pi = pi.mean) %>% 
+  mutate(Expo = "DI")
+
+
+DC1dpc.clean <- 
+  DC1dpc.Meta %>% 
+  select(Quail, pi) %>% 
+  mutate(Expo = "DC")
+
+Complete.pi <- rbind(DI.1and3dpi.Mean.pi.clean, DC1dpc.clean)
+
+#Add Metada back
+trcQuailData <-
+QuailData %>% 
+  select("Quail", "Group")
+
+Complete.pi.Meta <- 
+  Complete.pi %>% 
+  left_join(trcQuailData, "Quail") %>% 
+  unique()
+  
+```
+ 
+ Plotting
+ 
+```{r}
+#Levels
+Complete.pi.Meta$Group<-
+  factor(Complete.pi.Meta$Group,
+         levels = c(" var", " varQ", " varLQ", " varL"))
+
+Complete.pi.Meta$Expo <-
+  factor(Complete.pi.Meta$Expo,
+         levels = c("DI", "DC"))
+
+# Labels
+Expo.labels <- c("DI" = "Inoculated",
+                 "DC" = "Contacts")
+
+Complete.pi.Meta.plot<-
+ggplot() +
+  geom_boxplot(data=Complete.pi.Meta, aes(x=Expo, y=pi), outlier.shape = NA) +
+  geom_jitter(data=Complete.pi.Meta, aes(x=Expo, y=pi), width = 0.2) +
+  theme(
+    axis.text.y=element_text(size = 14),
+    strip.text.x = element_text(size = 14, face = "bold"),
+    axis.title=element_text(size=14,face="bold")) +
+  scale_x_discrete(labels = Expo.labels) +
+  xlab("Exposure") + 
+  ylab("pi (Diversity)") +  
+  facet_grid(.~Group) 
+print(Complete.pi.Meta.plot)
+ggsave("Complete.pi.Meta.plot.pdf", width = 6, height = 3)
+
+```
+ STATS
+ 
+```{r}
+#var
+Complete.pi.Meta.var <-
+Complete.pi.Meta %>% 
+filter(Group == " var")  
+
+wilcox.test(pi ~ Expo, data = Complete.pi.Meta.var)
+```
+ 
+
+```{r}
+#varQ
+Complete.pi.Meta.varQ <-
+Complete.pi.Meta %>% 
+filter(Group == " varQ")  
+
+wilcox.test(pi ~ Expo, data = Complete.pi.Meta.varQ)
+```
+
+```{r}
+#varLQ
+Complete.pi.Meta.varLQ <-
+Complete.pi.Meta %>% 
+filter(Group == " varLQ")  
+
+wilcox.test(pi ~ Expo, data = Complete.pi.Meta.varLQ)
+```
+
+
+```{r}
+#varL
+Complete.pi.Meta.varL <-
+Complete.pi.Meta %>% 
+filter(Group == " varL")  
+
+wilcox.test(pi ~ Expo, data = Complete.pi.Meta.varL)
+```

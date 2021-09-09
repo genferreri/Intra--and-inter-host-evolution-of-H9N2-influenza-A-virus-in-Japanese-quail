@@ -1,0 +1,267 @@
+---
+title: "Shannon entropy calculation for HA216 molecular markers"
+output: html_notebook
+---
+The aim of this script is to calculate the Shannon entropy before and after transmission.
+The RData files needed for the calculation are: HA216.DC.var, HA216.DC.varL, HA216.DC.varQ, HA216.DC.varLQ, HA216.DI.var, HA216.DI.varL, HA216.DI.varQ, HA216.DI.varLQ. Here "var" represents samples in which L216 and Q216 were not included.
+
+```{r}
+library(dplyr)
+library(vegan)
+library(tidyr)
+library(ggplot2)
+library(ggpubr)
+```
+
+
+```{r}
+## Before proceeding, load the RData files into RStudio.
+## bind all Contacts and all Inoculated in two df
+
+Inoculated <- rbind(DI.var.AA, DI.varL.AA, DI.varLQ.AA, DI.varQ.AA)
+
+###Since the molecular markers at the time of contact exposure is unknown, 
+### approximation was done calculating the mean between 1 dpi and 3 dpi
+# Parse 1 dpi
+Inoculated.1dpi <-
+  Inoculated %>% 
+  filter(day == 1)
+
+# Parse 3 dpi
+Inoculated.3dpi <-
+  Inoculated %>% 
+  filter(day == 3)
+
+## Select the needed columns from both df
+# 1dpi
+Inoculated.1dpi_short <- 
+  Inoculated.1dpi %>% 
+  select(Quail, AminoAcid, ReadCount) 
+# 3dpi
+Inoculated.3dpi_short <- 
+  Inoculated.3dpi %>% 
+  select(Quail, AminoAcid, ReadCount) 
+
+## Rename columns in order to distinguish both days after joining
+Inoculated.1dpi_short <-
+Inoculated.1dpi_short %>% 
+  rename(ReadCount.1dpi = ReadCount)
+
+Inoculated.3dpi_short <-
+  Inoculated.3dpi_short %>% 
+  rename(ReadCount.3dpi = ReadCount)
+
+## Set cut off of 10 reads
+#Convert values lower than 10 to 0
+Inoculated.1dpi_short <-
+  Inoculated.1dpi_short %>% 
+  mutate(ReadCount.1dpi = replace(ReadCount.1dpi, 
+                             ReadCount.1dpi <= 10, 0))
+Inoculated.3dpi_short <-
+  Inoculated.3dpi_short %>% 
+  mutate(ReadCount.3dpi = replace(ReadCount.3dpi, 
+                                  ReadCount.3dpi <= 10, 0))
+
+
+# Make dfs wide  
+Inoculated.1dpi_short.wide <-
+  spread(Inoculated.1dpi_short, AminoAcid, ReadCount.1dpi)
+
+Inoculated.3dpi_short.wide <-
+  spread(Inoculated.3dpi_short, AminoAcid, ReadCount.3dpi)
+
+# Calculate index 
+Inoculated.1dpi_Shannon<-Inoculated.1dpi_short.wide %>% 
+  mutate(Inoc.Shannon.1dpi = vegan::diversity(Inoculated.1dpi_short.wide, 
+                                         index = "shannon", MARGIN = 1, 
+                                         base = exp(1)))
+
+Inoculated.3dpi_Shannon<-Inoculated.1dpi_short.wide %>% 
+  mutate(Inoc.Shannon.3dpi = vegan::diversity(Inoculated.3dpi_short.wide, 
+                                         index = "shannon", MARGIN = 1, 
+                                         base = exp(1)))
+
+#Select index column
+Inoculated.1dpi_Shannon.short <-
+  Inoculated.1dpi_Shannon %>% 
+  select(Quail, Inoc.Shannon.1dpi)
+
+Inoculated.3dpi_Shannon.short <-
+  Inoculated.3dpi_Shannon %>% 
+  select(Quail, Inoc.Shannon.3dpi)
+
+#Join and Calculate Mean
+
+Inoculated_Shannon <-
+  Inoculated.1dpi_Shannon.short %>% 
+  left_join(Inoculated.3dpi_Shannon.short, by = c("Quail"))
+
+Inoculated_ShannonMean <-
+  Inoculated_Shannon %>% 
+  mutate(ShannonMean = (Inoc.Shannon.1dpi+Inoc.Shannon.3dpi)/2) 
+
+```
+
+Calculate for Contacts
+
+```{r}
+## bind all Contacts and all Inoculated in two df
+
+Contacts <- rbind(DC.var.AA, DC.varL.AA, DC.varLQ.AA, DC.varQ.AA)
+
+# Parse 1dpi (Note: in the df 1 dpi correspond to the prvious annotation -> 3 dpi)
+
+Contacts.1dpi <-
+  Contacts %>% 
+  filter(day == 3)
+
+## The program needs data as: species (AA) in columns and samples in rows
+
+# Convert data to wide
+# Select columns. This avoids replacing integers by NAs when making the df wide
+Contacts.1dpi_short <- 
+  Contacts.1dpi %>% 
+  select(Quail, AminoAcid, ReadCount) 
+
+## Set cut off of 10 reads
+#Convert values lower than 10 to 0
+Contacts.1dpi_short <-
+Contacts.1dpi_short %>% 
+  mutate(ReadCount = replace(ReadCount, 
+                             ReadCount <= 10, 0))
+
+# Make df wide  
+Contacts.1dpi_short.wide <-
+  spread(Contacts.1dpi_short, AminoAcid, ReadCount)
+
+# Calculate index 
+Contacts.1dpi_Shannon<-Contacts.1dpi_short.wide %>% 
+  mutate(Cont.Shannon = vegan::diversity(Contacts.1dpi_short.wide, 
+                                  index = "shannon", MARGIN = 1, 
+                                  base = exp(1)))
+
+```
+
+Plot
+
+```{r}
+# Select Shannon calculation 
+Contact_Shannon <- 
+  Contacts.1dpi_Shannon %>% 
+  select(Quail, Cont.Shannon)
+Inoculated_Shannon <- 
+  Inoculated_ShannonMean %>% 
+  select(Quail, ShannonMean)
+# Rename Shannon columns
+Contact_Shannon <- Contact_Shannon %>% 
+  rename(Shannon = Cont.Shannon)
+Inoculated_Shannon <- 
+  Inoculated_Shannon %>% 
+  rename(Shannon = ShannonMean)
+
+#Bind
+Shannon <- rbind(Contact_Shannon, Inoculated_Shannon)
+
+## Add metadata
+# Import Quail metadata
+setwd("/Users/lucasmatiasferreri/Documents/Documents - Lucas’s MacBook Pro/226variantAnalysis/HTML/2.1 MutDistribution")
+Quail.Complete<-read.table("Quail.Complete.txt", sep = "\t", header = F, strip.white = T)
+
+colnames(Quail.Complete)<-c("Sample", "Quail", "day", "Expo", "Group")
+
+# Select unique rows  
+Quail.Complete_short <- 
+  Quail.Complete %>% 
+  distinct(Quail, Expo, Group)
+
+# Join
+Shannon.Groups <-
+  Shannon %>% 
+  left_join(Quail.Complete_short, by = c("Quail"))
+
+write.table(Shannon.Groups, 
+            file = "Shannon.Groups.txt", 
+            quote = F, sep="\t",
+            row.names = FALSE)
+
+###------- Plot
+
+#Assign levels
+Shannon.Groups$Expo <-
+  factor(Shannon.Groups$Expo, 
+         levels = c("DI", "DC"))
+
+Shannon.Groups$Group <-
+  factor(Shannon.Groups$Group, 
+         levels = c("var", "varQ", "varLQ", "varL"))
+
+# Create labels for x elements
+Expo.labels <- c("DI" = "Inoculated",
+                 "DC" = "Contacts")
+
+Shannon.Groups.plot<-
+ggplot() +
+  geom_boxplot(data=Shannon.Groups, aes(x=Expo, y=Shannon), outlier.shape = NA) +
+  geom_jitter(data=Shannon.Groups, aes(x=Expo, y=Shannon), width = 0.2) +
+  theme(
+    axis.text.y=element_text(size = 14),
+    strip.text.x = element_text(size = 14, face = "bold"),
+    axis.title=element_text(size=14,face="bold")) +
+  scale_x_discrete(
+                   labels = Expo.labels) +
+  xlab("Exposure") + 
+  ylab("Shannon Entropy") +  
+ # ggtitle("Reduction in diversity") +
+  facet_grid(.~Group) 
+print(Shannon.Groups.plot)
+ggsave("Shannon.Groups.plot.pdf", width = 6, height = 3)
+
+
+```
+
+Stats
+
+```{r}
+## summary statistics 
+group_by(Shannon.Groups, Group, Expo) %>%
+  summarise(
+    count = n(),
+    mean = mean(Shannon, na.rm = TRUE),
+    sd = sd(Shannon, na.rm = TRUE),
+    median = median(Shannon, na.rm = TRUE),
+    IQR = IQR(Shannon, na.rm = TRUE)
+  )
+#Test
+#var
+Shannon.var <-
+Shannon.Groups %>% 
+filter(Group == "var")
+
+wilcox.test(Shannon ~ Expo, data = Shannon.var)
+
+#varQ
+Shannon.varQ <-
+  Shannon.Groups %>% 
+  filter(Group == "varQ")
+
+wilcox.test(Shannon ~ Expo, data = Shannon.varQ)
+
+#varLQ
+
+Shannon.varLQ <-
+  Shannon.Groups %>% 
+  filter(Group == "varLQ")
+
+wilcox.test(Shannon ~ Expo, data = Shannon.varLQ)
+
+#varL
+
+Shannon.varL <-
+  Shannon.Groups %>% 
+  filter(Group == "varL")
+
+wilcox.test(Shannon ~ Expo, data = Shannon.varL)
+
+
+```
+
