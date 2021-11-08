@@ -30,21 +30,11 @@ time cutadapt -f fastq --match-read-wildcards \
 
 module unload cutadapt/2.8-GCCcore-8.3.0-Python-3.7.4     
 
-module load BBMap/38.83-GCC-8.3.0 
-
-bbduk.sh in="$NAME1"_cutadapt.fastq.gz out="$NAME1"_cutadapt.fastq.gz usejni=t qtrim=rl trimq=30
-bbduk.sh in="$NAME2"_cutadapt.fastq.gz out="$NAME2"_cutadapt.fastq.gz usejni=t qtrim=rl trimq=30
-
-module unload BBMap/38.83-GCC-8.3.0
-
-#cat "$NAME1"_S?_L001_R1_001_cutadapt.fastq.gz > "$NAME1"_cutadapt.fastq.gz
-
-#cat "$NAME1"_cutadapt.fastq.gz "$NAME2"_cutadapt.fastq.gz > "$NAME3"_cutadapt.fastq.gz
+# as per LoFreq recommendation, QC is is not needed since it is handled by the GATK realingment itself.
 
 mkdir original-data
 
 mv *1.fastq.gz ./original-data
-#mv *1_qced.fastq.gz ./original-data
 
 cat *.fastq.gz > "$NAME3"_cutadapt.fastq.gz
 mv *_001_cutadapt.fastq.gz ./original-data
@@ -54,8 +44,6 @@ module load BWA/0.7.17-GCC-8.3.0
 echo `module list`
 
 NAME=$(find . -maxdepth 1 -name "*.fastq.gz" | xargs -I {} basename {} .fastq.gz)
-
-#NAME2=$(find . -maxdepth 1 -name "_curated_varpatch.fa" | xargs -I {} basename {} _curated_varpatch.fa)
 
 echo "name of the file is : $NAME"
 
@@ -95,9 +83,6 @@ ValidateSamFile \
 I="$NAME"_bwa_sorted_Added.bam \
 MODE=SUMMARY 1>job.out 2>job.err
 
-
-##-------------------------Previous GATKBamProcessingLoFreq_mod_Sap2.sh
-
 rm ._*
 
 NAME=$(find . -maxdepth 1 -name "*.fastq.gz" | xargs -I {} basename {} .fastq.gz)
@@ -135,16 +120,6 @@ time java -jar $EBROOTGATK/GenomeAnalysisTK.jar \
 -I "$NAME"_bwa_sorted_Added.bam \
 -targetIntervals target_intervals.list \
 -o "$NAME"_bwa_sorted_realigned.bam
-
-#rm "$NAME"_bwa_sorted_markdup_realigned.bai
-
-#samtools index "$NAME"_bwa_sorted_markdup_realigned.bam
-
-#module load bcftools/1.6
-
-#bcftools -v -m "$NAME"_bwa_sorted_markdup_realigned.vcf.gz > "$NAME"_bwa_sorted_markdup_realigned_calls.vcf.gz
-# -v variant only
-# -m multiallelic caller
 
 time java -jar $EBROOTGATK/GenomeAnalysisTK.jar \
 -T BaseRecalibrator \
